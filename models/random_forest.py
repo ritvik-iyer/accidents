@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-# from sklearn.grid_search import GridSearchCV
+from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
@@ -11,19 +11,32 @@ import pickle
 import os
 import time
 
-def train_model(train, file_name):
+def train_model(train, model_name):
     """Trains a Random Forest classification model and writes it to a file"""
-    rfc = RandomForestClassifier(random_state=0, n_jobs=-1,
-                                 n_estimators=100, max_features='sqrt')
+    file_name = f'{model_name}.sav'
+    rfc = RandomForestClassifier()
+    param_grid = {
+        # Set possible values for hyper-parameters for Random Forest
+        'bootstrap':[True],
+        'n_estimators':[100, 250, 500, 1000],
+        'max_features':['sqrt', 'log2'],
+        'min_samples_leaf':[1, 5, 10, 20]
+    }
+    num_combos = np.prod(np.array([len(param_grid[x]) for x in param_grid]))
+    rfc_grid_search = GridSearchCV(estimator=rfc, param_grid=param_grid,
+                                   cv=5, n_jobs=-1)
     X_train = train.drop(columns=['Severity']).values.astype(float)
     y_train = train.loc[:, 'Severity'].values.astype(int)
     print('Model is training...')
     start = time.time()
-    rfc.fit(X_train, y_train)
+    rfc_grid_search.fit(X_train, y_train)
     end = time.time()
-    print(f'Model has finished training! Time elapsed: {(end - start)/60:.2f} minutes \n')
+    print(f'The CV process has ended! Tried {num_combos} models, time elapsed: {(end - start)/60:.2f} minutes \n')
+    best_rfc = rfc_grid_search.best_estimator_
+    cv_scores = pd.DataFrame(rfc_grid_search.cv_results_)
+    cv_scores.to_csv(os.path.join(os.path.join(os.getcwd(), 'param-tuning'), f'{model_name}_cvscores.csv'), index=False)
     with open(os.path.join(os.path.join(os.getcwd(), 'saved_models'), file_name), 'wb') as model:
-        pickle.dump(rfc, model)
+        pickle.dump(best_rfc, model)
     return
 
 def metrics(val, model, print_AUC=False):
@@ -47,20 +60,20 @@ def metrics(val, model, print_AUC=False):
         print(f'AUC: {auc:.3f}')
     return
 
-def inference(test, model, model_name, write_to_file=True):
-    """Runs inference on the test set and optionally writes results to file"""
+def inference(test, model, model_name):
+    """Runs inference on the test set and writes results to file"""
     IDs = test['ID']
     X_test = test.drop(columns=['ID'])
     y_test_preds = model.predict(X_test)
     predictions = pd.DataFrame({'ID':IDs,
                                 'Severity':y_test_preds})
-    if write_to_file:
-        pred_file_name = f'{model_name}.csv'
-        full_file_path = os.path.join(os.path.join(os.path.dirname(os.getcwd()), 'predictions'), pred_file_name)
-        predictions.to_csv(full_file_path, index=False)
+    pred_file_name = f'{model_name}.csv'
+    full_file_path = os.path.join(os.path.join(os.path.dirname(os.getcwd()), 'predictions'), pred_file_name)
+    predictions.to_csv(full_file_path, index=False)
 
-def load_model(file_name):
-    """Loads model with specified file name"""
+def load_model(model_name):
+    """Loads model with specified model name"""
+    file_name = f'{model_name}.sav'
     model_path = os.path.join(os.path.join(os.getcwd(), 'saved_models'), file_name)
     assert os.path.exists(model_path), f"{file_name} does not exist!"
     try:
@@ -72,12 +85,11 @@ def load_model(file_name):
 
 if __name__ == '__main__':
     model_name = 'random_forest'
-    file_name = f'{model_name}.sav'
-    if not os.path.exists(os.path.join('saved_models', file_name)):
+    if not os.path.exists(os.path.join('saved_models', f'{model_name}.sav')):
         train = pd.read_csv(os.path.join(os.path.dirname(os.getcwd()), 'train_final.csv'))
-        train_model(train, file_name)
-    model = load_model(file_name)
-    # val = pd.read_csv(os.path.join(os.path.dirname(os.getcwd()), 'val_final.csv'))
-    # metrics(val, model, print_AUC=True)
-    test = pd.read_csv(os.path.join(os.path.dirname(os.getcwd()), 'test_final.csv'))
-    inference(test, model, model_name)
+        train_model(train, model_name)
+    model = load_model(model_name)
+    val = pd.read_csv(os.path.join(os.path.dirname(os.getcwd()), 'val_final.csv'))
+    metrics(val, model, print_AUC=True)
+    # test = pd.read_csv(os.path.join(os.path.dirname(os.getcwd()), 'test_final.csv'))
+    # inference(test, model, model_name)
