@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
+# from sklearn.grid_search import GridSearchCV
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
@@ -12,7 +13,18 @@ import time
 
 def train_model(train, file_name):
     """Trains a Random Forest classification model and writes it to a file"""
-    pass
+    rfc = RandomForestClassifier(random_state=0, n_jobs=-1,
+                                 n_estimators=100, max_features='sqrt')
+    X_train = train.drop(columns=['Severity']).values.astype(float)
+    y_train = train.loc[:, 'Severity'].values.astype(int)
+    print('Model is training...')
+    start = time.time()
+    rfc.fit(X_train, y_train)
+    end = time.time()
+    print(f'Model has finished training! Time elapsed: {(end - start)/60:.2f} minutes \n')
+    with open(os.path.join(os.path.join(os.getcwd(), 'saved_models'), file_name), 'wb') as model:
+        pickle.dump(rfc, model)
+    return
 
 def metrics(val, model, print_AUC=False):
     """Prints classifier performance metrics on the validation set"""
@@ -65,7 +77,7 @@ if __name__ == '__main__':
         train = pd.read_csv(os.path.join(os.path.dirname(os.getcwd()), 'train_final.csv'))
         train_model(train, file_name)
     model = load_model(file_name)
-    val = pd.read_csv(os.path.join(os.path.dirname(os.getcwd()), 'val_final.csv'))
-    metrics(val, model, print_AUC=True)
+    # val = pd.read_csv(os.path.join(os.path.dirname(os.getcwd()), 'val_final.csv'))
+    # metrics(val, model, print_AUC=True)
     test = pd.read_csv(os.path.join(os.path.dirname(os.getcwd()), 'test_final.csv'))
     inference(test, model, model_name)
