@@ -1,0 +1,184 @@
+---
+title: "Stat 154 Final Project EDA"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+accidents = read.csv('accidents.csv', stringsAsFactors = FALSE)
+```
+
+```{r Start Time Analysis}
+Start_Time_NA = accidents %>% filter(Start_Time == NA) %>% summarise(length(Start_Time))
+Start_Time_num_NA = Start_Time_NA$`length(Start_Time)`[0]
+
+start_times = ymd_hms(accidents$Start_Time)
+
+# Convert datetime objects to numeric (in hours)
+start_time_hours = hour(start_times) + minute(start_times)/60 + second(start_times)/3600
+hist(start_time_hours)
+hist(year(start_times))
+hist(day(start_times))
+hist(month(start_times))
+```
+
+```{r Start Time Analysis}
+accidents$start_time_hrs = start_time_hours
+accidents$start_time_month = month(start_times)
+accidents$start_time_year = year(start_times)
+accidents$start_time_day = day(start_times)
+accidents$day_of_week = factor(weekdays(date(start_times)), levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+```
+
+```{r}
+#Plot of Start_Time in Hours
+ggplot(accidents, aes(start_time_hours, fill = factor(Severity))) +
+  geom_histogram(alpha = 0.5, position="identity")+ggtitle("Start Time Hour") +
+  xlab("Month") + ylab("Frequency")
+
+#Plot of Start_Time in Days
+ggplot(accidents, aes(start_time_day, fill = factor(Severity))) +
+  geom_histogram(alpha = 0.5, position="identity")+ggtitle("Start Time Day") +
+  xlab("Day") + ylab("Frequency")
+
+#Plot of Start_Time in Months
+ggplot(accidents, aes(start_time_month, fill = factor(Severity))) +
+  geom_histogram(alpha = 0.5, position="identity")+ggtitle("Start Time Month") +
+  xlab("Month") + ylab("Frequency") 
+
+#Plot of Start_Time in Years
+ggplot(accidents, aes(start_time_year, fill = factor(Severity))) +
+  geom_histogram(alpha = 0.5, position="identity")+ggtitle("Start Time Year") +
+  xlab("Year") + ylab("Frequency")
+
+#Bar Chart of Day of Week
+ggplot(accidents, aes(day_of_week, fill = factor(Severity))) +
+  geom_bar(alpha = 0.5) + xlab('Day of Week') + ylab('Frequency') + ggtitle("Day of Week by Accident Frequency")
+```
+
+```{r Duration (End_Time - Start_Time) Analysis}
+end_times = ymd_hms(accidents$End_Time)
+end_times_hours = hour(end_times) + minute(end_times)/60 + second(end_times)/3600
+duration_hours = end_times_hours - start_time_hours
+
+# duration_minutes = c()
+# for (i in 1:length(start_times)) {
+#   if (day(start_times[i]) < day(end_times[i])) {
+#     duration = (60*24 - 60*hour(start_times[i]) + minute(start_times[i]) + second(start_times[i])/60) + 60*hour(end_times[i]) + minute(end_times[i]) + second(end_times[i])/60
+#     append(duration_minutes, duration)
+#   } else {
+#     start_times_minutes = 60*hour(start_times[i]) + minute(start_times[i]) + second(start_times[i])/60
+#     end_times_minutes = 60*hour(end_times[i]) + minute(end_times[i]) + second(end_times[i])/60
+#     duration = end_times_minutes - start_times_minutes
+#     append(duration_minutes, duration)
+#   }
+# }
+
+start_times_minutes = 60*hour(start_times) + minute(start_times) + second(start_times)/60
+end_times_minutes = 60*hour(end_times) + minute(end_times) + second(end_times)/60
+duration_minutes = end_times_minutes - start_times_minutes
+
+for (i in 1:length(duration_minutes)) {
+  if (duration_minutes[i] < 0) {
+    duration_minutes[i] = 60*24 - duration_minutes[i]
+  }
+}
+
+#hist(duration_hours)
+hist(duration_minutes) #Why are there negative durations? -> Some cross over midnight
+#hist(duration_minutes, xlim = c(0, 1000))
+
+accidents$duration = duration_minutes
+```
+
+```{r}
+ggplot(accidents, aes(duration, fill = factor(Severity))) +
+  geom_histogram(alpha = 0.5, position="identity")+ggtitle("Duration Histogram") +
+  xlab("Duration (minutes)") + ylab("Frequency")
+```
+
+```{r Distance Analysis}
+
+accidents %>% filter(Distance.mi. == NA) %>% summarise(length(Distance.mi.)) #No missing values for distance
+
+distances = accidents$Distance.mi.
+IQR = quantile(distances, 0.75)[['75%']] - quantile(distances, 0.25)[['25%']]
+
+summary(accidents$Distance.mi.)
+table(accidents[accidents$Distance.mi. > 1.5*IQR, ]$Severity)
+
+hist(accidents$Distance.mi., breaks = seq(0, 500, 10), xlim = c(0, 500))
+hist(accidents[accidents$Distance.mi. > 100, ]$Distance.mi., breaks = seq(0, 500, 10), xlim = c(0, 500)) #Think of reason why I chose 100? 
+```
+
+```{r}
+#filter then group by city and take most common zipcode
+#accidents$Zipcode = as.numeric(as.character(accidents$Zipcode))
+
+missing_zipcodes = accidents %>% filter(Zipcode == "")
+missing_zipcodes
+
+missing_zipcodes_index = which(accidents$Zipcode == "Mode")
+for (index in missing_zipcodes_index) {
+  row = accidents[index, ]
+  row_county = row$County
+  row_state = row$State
+  
+  avg_location_df = accidents %>% filter(County == row_county & State == row_state)
+  most_common_zip = names(sort(table(avg_location_df$Zipcode), decreasing=T))[[1]]
+  accidents[index, ]$Zipcode = most_common_zip
+}
+```
+
+```{r}
+row_ex = accidents[3841, ]
+row_county_ex = as.character(row_ex$County)
+row_state_ex = as.character(row_ex$State)
+
+avg_location_df_ex = accidents %>% filter(County == row_county_ex & State == row_state_ex)
+most_common_zip_ex = names(sort(summary(avg_location_df_ex$Zipcode), decreasing=T)[2])
+```
+
+```{r}
+queen_annes_codes_index = which(accidents$Zipcode == "")
+for (index in queen_annes_codes_index) {
+  accidents[index, ]$Zipcode = "21675"
+}
+
+for (index in which(accidents$City == "")) {
+  accidents[index, ]$City = "Queen Anne's"
+}
+```
+
+
+```{r}
+weather_adj_accidents = read.csv('stat154_weather_test_vars.csv')
+```
+
+```{r}
+weather_adj_accidents$Start_Time = accidents$Start_Time
+weather_adj_accidents$End_Time = accidents$End_Time
+weather_adj_accidents$Duration = accidents$duration
+weather_adj_accidents$Start_Lat = accidents$Start_Lat
+weather_adj_accidents$Start_Lng = accidents$Start_Lng
+weather_adj_accidents$Distance.mi = accidents$Distance.mi.
+weather_adj_accidents$Description = accidents$Description
+weather_adj_accidents = cbind(weather_adj_accidents, accidents[, 14:22])
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
