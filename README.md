@@ -3,7 +3,7 @@ This is the final project for UC Berkeley's Stat 154: Modern Statistical Predict
 
 The models produced in this project have been submitted to the class [Kaggle competition hosted here](https://www.kaggle.com/c/stat154-final-project/data). 
 
-#### -- Project Status: [Completed]
+#### Project Status: Completed
 
 ## Project Intro/Objective
 The purpose of this project is to predict the severity of traffic accidents in the United States, using real-time traffic, location, and weather data from around 3 million accidents spanning 49 states. Our objective was to design a binary classifier for severe accident detection. 
