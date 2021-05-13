@@ -1,0 +1,60 @@
+---
+title: "Stat 154 Final Project Modeling + PCA"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(caret)
+library(MASS)
+library(glmnet)
+library(e1071)
+train_set = read.csv('/Users/ryanchien/accidents/train_final.csv')
+val_set = read.csv('/Users/ryanchien/accidents/val_final.csv')
+```
+
+```{r LDA}
+mod1 = lda(Severity~. , data = train_set)
+summary(mod1)
+val_set_predictions = predict(mod1, val_set)
+mean(val_set$Severity == val_set_predictions$class)
+
+train_set_predictions = predict(mod1, train_set)
+mean(train_set$Severity == train_set_predictions$class)
+```
+
+```{r QDA}
+mod2 = qda(Severity~. , data = train_set)
+summary(mod2)
+val_set_predictions2 = predict(mod2, val_set)
+mean(val_set$Severity == val_set_predictions2$class)
+```
+
+```{r}
+# x <- model.matrix( ~ .-Severity, data = train_no_training_loop)
+# mod3 = glmnet(x = x, y = train_no_training_loop[, 81], family = 'binomial')
+# val_set_predictions3 = predict(mod3, val_set[, -81], type='class')
+# mean(val_set$Severity == val_set_predictions3$class)
+```
+
+```{r}
+library(factoextra)
+numeric_train_set = train_set
+numeric_train_set$Weekday = as.numeric(train_set$Weekday) - 1
+numeric_train_set$Rush.Hour = as.numeric(train_set$Rush.Hour) - 1
+pca = prcomp(numeric_train_set)
+fviz_eig(pca)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
