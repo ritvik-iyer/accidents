@@ -18,13 +18,13 @@ def train_model(train, model_name):
     param_grid = {
         # Set possible values for hyper-parameters for Random Forest
         'bootstrap':[True],
-        'n_estimators':[500, 1000],
+        'n_estimators':[250, 500],
         'max_features':['log2'],
-        'min_samples_leaf':[10, 20]
+        'min_samples_leaf':[1, 5, 10]
     }
     num_combos = np.prod(np.array([len(param_grid[x]) for x in param_grid]))
     rfc_grid_search = GridSearchCV(estimator=rfc, param_grid=param_grid,
-                                   cv=5, n_jobs=-1, )
+                                   cv=2, n_jobs=-1)
     X_train = train.drop(columns=['Severity']).values.astype(float)
     y_train = train.loc[:, 'Severity'].values.astype(int)
     print('Model is training...')
@@ -88,7 +88,7 @@ if __name__ == '__main__':
     if not os.path.exists(os.path.join('saved_models', f'{model_name}.sav')):
         train = pd.read_csv(os.path.join(os.path.dirname(os.getcwd()), 'train_final.csv'))
         # 1 is minority class (more severe)
-        num_severe = min(train[train['Severity']].value_counts())
+        num_severe = min(train['Severity'].value_counts())
         train_data = train.groupby('Severity').sample(n=num_severe, random_state=0)
         train_model(train_data, model_name)
     model = load_model(model_name)
