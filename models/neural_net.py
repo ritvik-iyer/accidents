@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 import torch.utils.data as data
 from torch.utils.data import DataLoader
+import torch.optim.lr_scheduler as lr_scheduler
 from collections import Counter
 from sklearn.utils import shuffle
 from sklearn.metrics import accuracy_score
@@ -26,31 +27,64 @@ class AccidentDataset(data.Dataset):
         y_idx = self.y[idx]
         return X_idx, y_idx
 
+class AccidentTestset(data.Dataset):
+    def __init__(self, features):
+        self.X = features
+    def __len__(self):
+        return self.X.shape[0]
+    def __getitem__(self, idx):
+        X_idx = self.X[idx, :]
+        return X_idx
+
 class MLP(nn.Module):
     def __init__(self):
         """Define the MLP architecture"""
         super(MLP, self).__init__()
+        # self.fc1 = nn.Linear(80, 256)
+        # self.fc2 = nn.Linear(256, 512)
+        # self.fc3 = nn.Linear(512, 2)
+        # self.dropout = nn.Dropout(0.1)
         self.fc1 = nn.Linear(80, 256)
         self.fc2 = nn.Linear(256, 512)
-        self.fc3 = nn.Linear(512, 2)
+        self.fc3 = nn.Linear(512, 512)
+        self.fc4 = nn.Linear(512, 50)
+        self.fc5 = nn.Linear(50, 2)
         self.dropout = nn.Dropout(0.1)
+        self.batchnorm1 = nn.BatchNorm1d(256)
+        self.batchnorm2 = nn.BatchNorm1d(512)
+        self.batchnorm3 = nn.BatchNorm1d(50)
     def forward(self, x):
+        # x = F.relu(self.fc1(x))
+        # x = self.dropout(x)
+        # x = F.relu(self.fc2(x))
+        # x = self.dropout(x)
+        # x = self.fc3(x)
+        # x = torch.sigmoid(x)
         x = F.relu(self.fc1(x))
-        x = self.dropout(x)
+        x = self.batchnorm1(x)
         x = F.relu(self.fc2(x))
+        x = self.batchnorm2(x)
         x = self.dropout(x)
-        x = self.fc3(x)
-        x = torch.sigmoid(x)
+        x = F.relu(self.fc3(x))
+        x = self.batchnorm2(x)
+        x = self.dropout(x)
+        x = F.relu(self.fc4(x))
+        x = self.batchnorm3(x)
+        x = self.dropout(x)
+        x = self.fc5(x)
+        #x = torch.sigmoid(x)
         return x
-    def validate(self, val_loader, device=torch.device('cpu')):
+    def validate(self, data_loader, device=torch.device('cpu')):
+        self.eval()
         correct = 0
-        for features, labels in val_loader:
-            features = features.to(torch.float)
-            labels = labels.to(torch.long)
-            features = features.to(device)
-            labels = labels.to(device)
-            outputs = torch.argmax(self(features), dim=1)
-            correct += int(torch.sum(outputs==labels))
+        with torch.no_grad():
+            for features, labels in data_loader:
+                features = features.to(torch.float)
+                labels = labels.to(torch.long)
+                features = features.to(device)
+                labels = labels.to(device)
+                outputs = torch.argmax(self(features), dim=1)
+                correct += int(torch.sum(outputs==labels))
         return correct
 
 def train_network(model, train_loader, val_loader, train_len, val_len,
@@ -72,7 +106,7 @@ def train_network(model, train_loader, val_loader, train_len, val_len,
             output = model(features)
             # Compute loss
             loss = criterion(output, labels)
-            # Perform backward pass
+            # Perform backpropagation
             loss.backward()
             # Perform optimization
             optimizer.step()
@@ -82,7 +116,36 @@ def train_network(model, train_loader, val_loader, train_len, val_len,
         #train_acc = accuracy_score(get_labels(train_loader), get_predictions(model, train_loader))
         #print('\nAccuracy on training: %.3f%%' % (100*train_acc))
         print(f'Training Accuracy: {(model.validate(train_loader, device=device)/train_len) * 100:.3f}%')
-        print(f'Validation Accuracy: {(model.validate(val_loader, device=device)/val_len) * 100:.3f}%')
+        #print(f'Validation Accuracy: {(model.validate(val_loader, device=device)/val_len) * 100:.3f}%')
+    return
+
+def load_model(file_name, device):
+    """Loads PyTorch model with specified model name"""
+    model_path = os.path.join(os.path.join(os.getcwd(), 'saved_models'), file_name)
+    assert os.path.exists(model_path), f"{file_name} does not exist!"
+    try:
+        model = MLP().to(device)
+        model.load_state_dict(torch.load(model_path))
+        return model
+    except Exception as e:
+        raise ValueError('Unable to load model')
+
+def inference(model, test_loader, test_ids, model_name):
+    """Runs inference on the test set and writes results to file"""
+    IDs = test_ids
+    model.eval()
+    test_set_preds = []
+    with torch.no_grad():
+        for features in test_loader:
+            features = features.to(torch.float)
+            features = features.to(device)
+            outputs = torch.argmax(model(features), dim=1).tolist()
+            test_set_preds.extend(outputs)
+    predictions = pd.DataFrame({'ID':IDs,
+                                'Severity':test_set_preds})
+    pred_file_name = f'{model_name}.csv'
+    full_file_path = os.path.join(os.path.join(os.path.dirname(os.getcwd()), 'predictions'), pred_file_name)
+    predictions.to_csv(full_file_path, index=False)
     return
 
 if __name__ == '__main__':
@@ -95,8 +158,8 @@ if __name__ == '__main__':
         print("Running on the CPU")
     # Set hyper-parameters #
     batch_size = 100
-    num_epochs = 10
-    learning_rate = 0.01
+    num_epochs = 100
+    learning_rate = 0.05
     # Define datasets #
     print('Loading training set...')
     train = pd.read_csv(os.path.join(os.path.dirname(os.getcwd()), 'train_final.csv'))
@@ -114,7 +177,7 @@ if __name__ == '__main__':
     val_len = features_val.shape[0]
     # Convert data sets to dataloaders #
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
     # Define model, loss fn, and optimizer #
     model = MLP().to(device)
     criterion = nn.CrossEntropyLoss()
@@ -127,5 +190,20 @@ if __name__ == '__main__':
     end = time.time()
     print(f'Training has ended! Time elapsed: {(end - start)/60:.2f} minutes \n')
     # Save the model #
-    file_name = 'MLP-1HL'
+    file_name = '3HL_Batchnorm_005LR_100Epochs_CELoss'
     torch.save(model.state_dict(), os.path.join(os.path.join(os.getcwd(), 'saved_models'), file_name))
+    # Load the test set #
+    print('Loading test set...')
+    test = pd.read_csv(os.path.join(os.path.dirname(os.getcwd()), 'test_final.csv'))
+    print('Completed.')
+    # Create dataloader for test set #
+    IDs = test['ID']
+    features_test = test.drop(columns=['ID']).values.astype(float)
+    test_dataset = AccidentTestset(features_test)
+    test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
+    # Load the model #
+    print('Loading the model...')
+    model = load_model(file_name, device)
+    print('Completed.')
+    # Perform inference on test set and write results to file #
+    inference(model, test_loader, IDs, file_name)
