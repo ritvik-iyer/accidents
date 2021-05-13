@@ -16,7 +16,7 @@ The purpose of this project is to predict the severity of traffic accidents in t
 
 ### Technologies and Packages
 * R 
-  * Packages: `tidyverse`, `ggplot2`, `caret`, `glmnet`, `lubridate`, `e1071`
+  * Packages: `tidyverse`, `dplyr`, `ggplot2`, `caret`, `glmnet`, `lubridate`, `e1071`, `MASS`
 * Python
   * Packages: `pandas`, `numpy`, `scikit-learn`, `seaborn`, `matplotlib`, `pytorch`
 * Jupyter Notebook 
