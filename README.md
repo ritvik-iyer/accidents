@@ -22,7 +22,7 @@ The purpose of this project is to predict the severity of traffic accidents in t
 ## Getting Started
 
 1. Clone this repo (for help see this [tutorial](https://help.github.com/articles/cloning-a-repository/)).
-2. The datasets used and created during this project can be [accessed here](https://drive.google.com/drive/folders/1BzlvO6ZKXbegKGTDH_BlpqBIvN2WECmj?usp=sharing). Place the training, validation, and test sets in the general (~/accidents) directory. 
+2. The datasets used and created during this project can be [accessed here](https://drive.google.com/drive/folders/1BzlvO6ZKXbegKGTDH_BlpqBIvN2WECmj?usp=sharing). Place the training, validation, and test sets in the general `~/accidents` directory. 
 3. Data processing/transformation scripts are kept [here](https://github.com/ritvik-iyer/accidents/tree/main/data-cleaning)
 4. The models are kept [here](https://github.com/ritvik-iyer/accidents/tree/main/models). To run a model, navigate to the `~/accidents/models` directory and run the model of choice. 
 
