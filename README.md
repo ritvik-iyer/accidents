@@ -1,7 +1,7 @@
 # US Traffic Accidents 
 This is the final project for UC Berkeley's Stat 154: Modern Statistical Prediction and Machine Learning. 
 
-The models produced in this project have been submitted to the class [Kaggle competition hosted here](https://www.kaggle.com/c/stat154-final-project/data). 
+You can access our project write-up detailing our [data exploration and modeling process here](https://docs.google.com/document/d/1PjUDqpe5N5x2NrxIcIoJ_JW96UhzMZYn4rsMwpFlmDo/edit?usp=sharing). The models produced in this project have been submitted to the class [Kaggle competition hosted here](https://www.kaggle.com/c/stat154-final-project/data). 
 
 #### Project Status: Completed
 
